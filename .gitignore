@@ -1,6 +1,7 @@
 # Environment variables
 .env
 site-packages
+notes.txt
 
 # Python bytecode and caches
 __pycache__/
