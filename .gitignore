@@ -1,0 +1,47 @@
+# Environment variables
+.env
+site-packages
+
+# Python bytecode and caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+env/
+*.env/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs and output
+*.log
+*.out
+
+# Dependencies
+*.egg-info/
+.eggs/
+pip-log.txt
+
+# Build and distribution
+build/
+dist/
+*.egg
+*.wheel
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# Other temporary files
+*.tmp
+*.bak
+*.orig
+*.~lock.*
