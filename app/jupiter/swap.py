@@ -1,14 +1,20 @@
 import asyncio
 import base64
+import json
 import aiohttp
 import time
 from solders.transaction import VersionedTransaction
+from solders.message import Message
+from solders.hash import Hash
+from solders.pubkey import Pubkey
+from solders.transaction import Transaction
+import base58
 from app.jupiter.token_list import MINT_DICT
 from app.utils import crossmint
 from fastapi import HTTPException
 import os
 from dotenv import load_dotenv
-
+from pprint import pprint
 # Load environment variables
 load_dotenv()
 
@@ -19,7 +25,7 @@ timeout = aiohttp.ClientTimeout(total=10)
 
 async def jupiter_swap(input_mint, output_mint, amount):
     
-    WALLET_ADDRESS = crossmint.fetch_wallet()
+    WALLET_ADDRESS = await crossmint.fetch_wallet()
 
     quote_url = f"https://quote-api.jup.ag/v6/quote?inputMint={input_mint}&outputMint={output_mint}&amount={amount}"
     try:
@@ -47,18 +53,42 @@ async def jupiter_swap(input_mint, output_mint, amount):
         raise HTTPException(status_code=500, detail="Internal server error")
 
     try:
+        instructions = []
         swap_transaction = swap_response['swapTransaction']
         transaction_bytes = base64.b64decode(swap_transaction)
         unsigned_tx = VersionedTransaction.from_bytes(transaction_bytes)
-        print(unsigned_tx)
-        result = await crossmint.create_transaction(unsigned_tx)
+        message = unsigned_tx.message
+        
+        message_str = message.to_json()
+        new_message = Message.from_json(message_str)
+        ix = message.instructions
+        
+        # ix = message.instructions
+        
+        # # message.recent_blockhash = Hash.from_string("11111111111111111111111111111111")
+        # # message.payer = Pubkey.from_string("11111111111111111111111111111112")
+        # print(ix)
+        # print(ix[0].json())
+
+        new_message = Message.new_with_blockhash(
+            instructions,
+            Pubkey.from_string("11111111111111111111111111111112"),
+            Hash.from_string("11111111111111111111111111111111")
+        )
+        transaction = Transaction.new_unsigned(new_message)
+        serialized_transaction = bytes(transaction)
+        serialized_transaction_str = base58.b58encode(serialized_transaction).decode('ascii')
+
+        result = await crossmint.create_transaction(WALLET_ADDRESS,serialized_transaction_str)
+        
         if not result:
-             raise HTTPException(status_code=500, detail="Transaction sending failed")
+            raise HTTPException(status_code=500, detail="Transaction sending failed")
         
         return result
+        
     except Exception as e:
         print(f"Error creating or sending transaction: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=e)
 
 async def wait_for_confirmation(client, signature, max_timeout=60):
     start_time = time.time()
@@ -90,8 +120,9 @@ async def perform_swap(input_token, output_token, amount):
     try:
         result = await jupiter_swap(INPUT_MINT, OUTPUT_MINT, AMOUNT)
         if result:
-            tx_signature = result.value
-            solscan_url = f"https://solscan.io/tx/{tx_signature}"
+            print(result)
+            tx_sig = result["onChain"]["transaction"]
+            solscan_url = f"https://solscan.io/tx/{tx_sig}"
             print(f"Solscan link: {solscan_url}")
 
             # Optional
